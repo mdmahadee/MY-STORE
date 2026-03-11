@@ -1,148 +1,172 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <title>Store Book</title>
-  <style>
-    body{font-family:system-ui,Segoe UI,Roboto,Arial;margin:20px}
-    .card{border:1px solid #ddd;padding:12px;margin:8px 0;border-radius:6px}
-    .row{display:flex;gap:8px;align-items:center}
-    input[type="number"]{width:80px}
-    button{cursor:pointer}
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>MY STORE</title>
+<style>
+  body {
+    font-family: 'Arial', sans-serif;
+    background: #f0f2f5;
+    margin: 0;
+    padding: 0;
+  }
+
+  header {
+    background-color: #4CAF50;
+    color: white;
+    padding: 1rem;
+    text-align: center;
+  }
+
+  main {
+    max-width: 900px;
+    margin: 2rem auto;
+    padding: 1rem;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  }
+
+  h1 {
+    margin-top: 0;
+  }
+
+  form {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 2rem;
+  }
+
+  input[type="text"], input[type="number"] {
+    padding: 0.75rem;
+    font-size: 1rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    flex: 1;
+  }
+
+  button {
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    border: none;
+    border-radius: 4px;
+    background-color: #4CAF50;
+    color: white;
+    cursor: pointer;
+    transition: background 0.3s;
+  }
+
+  button:hover {
+    background-color: #45a049;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  th, td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+  }
+
+  th {
+    background-color: #f9f9f9;
+  }
+
+  .actions button {
+    background-color: #f44336;
+    margin-left: 0.5rem;
+  }
+
+  .actions button:hover {
+    background-color: #da190b;
+  }
+</style>
 </head>
 <body>
-  <h3>Store Book</h3>
 
-  <section class="card">
-    <h4>Create customer</h4>
-    <div class="row">
-      <input id="name" placeholder="Name" />
-      <input id="phone" placeholder="Phone" />
-      <input id="initialDebt" type="number" placeholder="Initial debt" value="0" />
-      <button id="createBtn">Create</button>
-    </div>
-    <div id="createMsg" style="color:green;margin-top:6px"></div>
+<header>
+  <h1>Customer Debt Manager</h1>
+</header>
+
+<main>
+  <section>
+    <h2>Add / Update Customer</h2>
+    <form id="customerForm">
+      <input type="text" id="name" placeholder="Customer Name" required />
+      <input type="number" id="debt" placeholder="Debt" required />
+      <button type="submit">Save</button>
+    </form>
   </section>
 
-  <section class="card">
-    <h4>Customers</h4>
-    <div id="list"></div>
+  <section>
+    <h2>Customer List</h2>
+    <button onclick="loadCustomers()">Refresh List</button>
+    <table id="customerTable">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Debt</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
   </section>
+</main>
 
-  <script>
-    const API = 'https://script.google.com/macros/s/AKfycbxF6LG5f9TqceUfLmTb5uSl2jnr5RPmuR82dieSGed32iqkB-LEcKFSYbAyB-nJsiK-/exec'; // <-- replace this
+<script>
+  const scriptUrl = 'https://script.google.com/macros/s/AKfycbw3XTg91BSoft1ICdvbSpm3GCqvTWedDPTAOsKDiqLN_5CbipAXlQNIFyeiStjowOoK/exec'; // Replace with your Google Apps Script URL
 
-    async function apiFetch(action, body){
-      const url = API + '?action=' + encodeURIComponent(action);
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify(body)
+  document.getElementById('customerForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const name = document.getElementById('name').value.trim();
+    const debt = parseFloat(document.getElementById('debt').value);
+    if (!name || isNaN(debt)) return alert('Please fill all fields correctly.');
+
+    fetch(`${scriptUrl}?action=addOrUpdateCustomer&name=${encodeURIComponent(name)}&debt=${debt}`)
+      .then(res => res.text())
+      .then(() => {
+        loadCustomers();
+        document.getElementById('customerForm').reset();
       });
-      return res.json();
-    }
+  });
 
-    async function load(){
-      try{
-        const res = await fetch(API);
-        const data = await res.json();
-        renderList(data);
-      }catch(err){
-        document.getElementById('list').innerText = 'Error loading data: ' + err;
-      }
-    }
-
-    function renderList(customers){
-      const container = document.getElementById('list');
-      container.innerHTML = '';
-      if(!customers || customers.length === 0){
-        container.innerText = 'No customers yet.';
-        return;
-      }
-      customers.forEach(c => {
-        const el = document.createElement('div');
-        el.className = 'card';
-        el.innerHTML = `
-          <div style="display:flex;justify-content:space-between;align-items:center">
-            <div>
-              <strong>${escapeHtml(c.name || '')}</strong><br/>
-              <small>Phone: ${escapeHtml(c.phone || '')}</small><br/>
-              <small>ID: ${escapeHtml(c.id || '')}</small>
-            </div>
-            <div style="text-align:right">
-              <div><strong>Debt: </strong><span id="debt-${c.id}">${Number(c.debt).toFixed(2)}</span></div>
-            </div>
-          </div>
-          <div class="row" style="margin-top:8px">
-            <input id="delta-${c.id}" type="number" placeholder="Amount" />
-            <button onclick="changeDebt('${c.id}', true)">Add</button>
-            <button onclick="changeDebt('${c.id}', false)">Subtract</button>
-            <button onclick="deleteCustomer('${c.id}')">Delete</button>
-            <input id="notes-${c.id}" placeholder="Notes" style="flex:1" />
-            <button onclick="saveNotes('${c.id}')">Save Notes</button>
-          </div>
-        `;
-        container.appendChild(el);
+  function loadCustomers() {
+    fetch(`${scriptUrl}?action=getCustomers`)
+      .then(res => res.json())
+      .then(data => {
+        const tbody = document.querySelector('#customerTable tbody');
+        tbody.innerHTML = '';
+        data.forEach(row => {
+          if (row[0]) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td>${row[0]}</td>
+              <td>${row[1]}</td>
+              <td class="actions">
+                <button onclick="deleteCustomer('${row[0]}')">Delete</button>
+              </td>`;
+            tbody.appendChild(tr);
+          }
+        });
       });
-    }
+  }
 
-    function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
+  function deleteCustomer(name) {
+    if (!confirm(`Are you sure you want to delete ${name}?`)) return;
+    fetch(`${scriptUrl}?action=deleteCustomer&name=${encodeURIComponent(name)}`)
+      .then(res => res.text())
+      .then(() => loadCustomers());
+  }
 
-    async function changeDebt(id, isAdd){
-      const deltaInput = document.getElementById('delta-' + id);
-      const val = Number(deltaInput.value || 0);
-      if(val === 0) return alert('Enter a nonzero amount.');
-      const delta = isAdd ? val : -val;
-      try{
-        const r = await apiFetch('updateDebt', {id, delta});
-        if(r.ok){
-          document.getElementById('debt-' + id).innerText = Number(r.newDebt).toFixed(2);
-          deltaInput.value = '';
-        }else alert('Error: ' + (r.error || 'unknown'));
-      }catch(e){ alert('Request failed: ' + e); }
-    }
+  // Load customers on page load
+  loadCustomers();
+</script>
 
-    // Create new customer
-    document.getElementById('createBtn').addEventListener('click', async ()=>{
-      const name = document.getElementById('name').value.trim();
-      const phone = document.getElementById('phone').value.trim();
-      const debt = Number(document.getElementById('initialDebt').value || 0);
-      if(!name) return alert('Name is required.');
-      try{
-        const r = await apiFetch('create', {name, phone, debt, notes:''});
-        if(r.ok){
-          document.getElementById('createMsg').innerText = 'Created ID: ' + r.id;
-          document.getElementById('name').value = '';
-          document.getElementById('phone').value = '';
-          document.getElementById('initialDebt').value = 0;
-          load();
-        }else{
-          alert('Create failed: ' + (r.error || 'unknown'));
-        }
-      }catch(e){ alert('Request failed: ' + e); }
-    });
-
-    // Optional: delete customer (removes row from sheet)
-    async function deleteCustomer(id){
-      if(!confirm('Delete this customer?')) return;
-      try{
-        const r = await apiFetch('delete', {id});
-        if(r.ok) load(); else alert('Delete failed: ' + (r.error||'unknown'));
-      }catch(e){ alert('Request failed: ' + e); }
-    }
-
-    // Save notes (requires backend support)
-    async function saveNotes(id){
-      const notes = document.getElementById('notes-' + id).value;
-      try{
-        const r = await apiFetch('saveNotes', {id, notes});
-        if(r.ok) alert('Notes saved'); else alert('Save failed: ' + (r.error||'unknown'));
-      }catch(e){ alert('Request failed: ' + e); }
-    }
-
-    // initial load
-    load();
-  </script>
 </body>
 </html>
