@@ -1,23 +1,148 @@
-<!-- index.html -->
-<!doctype html><meta charset="utf-8">
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Store Book</title>
+  <style>
+    body{font-family:system-ui,Segoe UI,Roboto,Arial;margin:20px}
+    .card{border:1px solid #ddd;padding:12px;margin:8px 0;border-radius:6px}
+    .row{display:flex;gap:8px;align-items:center}
+    input[type="number"]{width:80px}
+    button{cursor:pointer}
+  </style>
+</head>
 <body>
-  <h2>Store Book</h2>
-  <div id="list"></div>
+  <h3>Store Book</h3>
+
+  <section class="card">
+    <h4>Create customer</h4>
+    <div class="row">
+      <input id="name" placeholder="Name" />
+      <input id="phone" placeholder="Phone" />
+      <input id="initialDebt" type="number" placeholder="Initial debt" value="0" />
+      <button id="createBtn">Create</button>
+    </div>
+    <div id="createMsg" style="color:green;margin-top:6px"></div>
+  </section>
+
+  <section class="card">
+    <h4>Customers</h4>
+    <div id="list"></div>
+  </section>
+
   <script>
-    const API = 'https://script.google.com/macros/s/AKfycbxxkqR6Kk1xYR7I_t6HR9Pd6PbX9BPn0_tov9UDwfdVIzet3xDG7V6XO15abVeQWwOW/exec';
-    async function load(){ 
-      const res = await fetch(API);
-      const data = await res.json();
-      document.getElementById('list').innerText = JSON.stringify(data, null, 2);
+    const API = 'https://script.google.com/macros/s/AKfycbxxkqR6Kk1xYR7I_t6HR9Pd6PbX9BPn0_tov9UDwfdVIzet3xDG7V6XO15abVeQWwOW/exec'; // <-- replace this
+
+    async function apiFetch(action, body){
+      const url = API + '?action=' + encodeURIComponent(action);
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(body)
+      });
+      return res.json();
     }
-    async function createCustomer(name, phone){
-      await fetch(API + '?action=create', {method:'POST', body: JSON.stringify({name, phone, debt:0})});
-      load();
+
+    async function load(){
+      try{
+        const res = await fetch(API);
+        const data = await res.json();
+        renderList(data);
+      }catch(err){
+        document.getElementById('list').innerText = 'Error loading data: ' + err;
+      }
     }
-    async function changeDebt(id, delta){
-      await fetch(API + '?action=updateDebt', {method:'POST', body: JSON.stringify({id, delta})});
-      load();
+
+    function renderList(customers){
+      const container = document.getElementById('list');
+      container.innerHTML = '';
+      if(!customers || customers.length === 0){
+        container.innerText = 'No customers yet.';
+        return;
+      }
+      customers.forEach(c => {
+        const el = document.createElement('div');
+        el.className = 'card';
+        el.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <strong>${escapeHtml(c.name || '')}</strong><br/>
+              <small>Phone: ${escapeHtml(c.phone || '')}</small><br/>
+              <small>ID: ${escapeHtml(c.id || '')}</small>
+            </div>
+            <div style="text-align:right">
+              <div><strong>Debt: </strong><span id="debt-${c.id}">${Number(c.debt).toFixed(2)}</span></div>
+            </div>
+          </div>
+          <div class="row" style="margin-top:8px">
+            <input id="delta-${c.id}" type="number" placeholder="Amount" />
+            <button onclick="changeDebt('${c.id}', true)">Add</button>
+            <button onclick="changeDebt('${c.id}', false)">Subtract</button>
+            <button onclick="deleteCustomer('${c.id}')">Delete</button>
+            <input id="notes-${c.id}" placeholder="Notes" style="flex:1" />
+            <button onclick="saveNotes('${c.id}')">Save Notes</button>
+          </div>
+        `;
+        container.appendChild(el);
+      });
     }
+
+    function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
+
+    async function changeDebt(id, isAdd){
+      const deltaInput = document.getElementById('delta-' + id);
+      const val = Number(deltaInput.value || 0);
+      if(val === 0) return alert('Enter a nonzero amount.');
+      const delta = isAdd ? val : -val;
+      try{
+        const r = await apiFetch('updateDebt', {id, delta});
+        if(r.ok){
+          document.getElementById('debt-' + id).innerText = Number(r.newDebt).toFixed(2);
+          deltaInput.value = '';
+        }else alert('Error: ' + (r.error || 'unknown'));
+      }catch(e){ alert('Request failed: ' + e); }
+    }
+
+    // Create new customer
+    document.getElementById('createBtn').addEventListener('click', async ()=>{
+      const name = document.getElementById('name').value.trim();
+      const phone = document.getElementById('phone').value.trim();
+      const debt = Number(document.getElementById('initialDebt').value || 0);
+      if(!name) return alert('Name is required.');
+      try{
+        const r = await apiFetch('create', {name, phone, debt, notes:''});
+        if(r.ok){
+          document.getElementById('createMsg').innerText = 'Created ID: ' + r.id;
+          document.getElementById('name').value = '';
+          document.getElementById('phone').value = '';
+          document.getElementById('initialDebt').value = 0;
+          load();
+        }else{
+          alert('Create failed: ' + (r.error || 'unknown'));
+        }
+      }catch(e){ alert('Request failed: ' + e); }
+    });
+
+    // Optional: delete customer (removes row from sheet)
+    async function deleteCustomer(id){
+      if(!confirm('Delete this customer?')) return;
+      try{
+        const r = await apiFetch('delete', {id});
+        if(r.ok) load(); else alert('Delete failed: ' + (r.error||'unknown'));
+      }catch(e){ alert('Request failed: ' + e); }
+    }
+
+    // Save notes (requires backend support)
+    async function saveNotes(id){
+      const notes = document.getElementById('notes-' + id).value;
+      try{
+        const r = await apiFetch('saveNotes', {id, notes});
+        if(r.ok) alert('Notes saved'); else alert('Save failed: ' + (r.error||'unknown'));
+      }catch(e){ alert('Request failed: ' + e); }
+    }
+
+    // initial load
     load();
   </script>
 </body>
+</html>
