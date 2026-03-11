@@ -137,6 +137,8 @@
       });
   });
 
+
+  
   function loadCustomers() {
     fetch(`${scriptUrl}?action=getCustomers`)
       .then(res => res.json())
@@ -167,6 +169,15 @@
 
   // Load customers on page load
   loadCustomers();
+
+    // Add or update customer
+fetch(`${scriptUrl}?action=addOrUpdateCustomer&name=${encodeURIComponent(name)}&debt=${debt}`)
+
+// Get customers
+fetch(`${scriptUrl}?action=getCustomers`)
+
+// Delete customer
+fetch(`${scriptUrl}?action=deleteCustomer&name=${encodeURIComponent(name)}`)
 </script>
 
 </body>
