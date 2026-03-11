@@ -1,0 +1,23 @@
+<!-- index.html -->
+<!doctype html><meta charset="utf-8">
+<body>
+  <h2>Store Book</h2>
+  <div id="list"></div>
+  <script>
+    const API = 'YOUR_WEB_APP_URL';
+    async function load(){ 
+      const res = await fetch(API);
+      const data = await res.json();
+      document.getElementById('list').innerText = JSON.stringify(data, null, 2);
+    }
+    async function createCustomer(name, phone){
+      await fetch(API + '?action=create', {method:'POST', body: JSON.stringify({name, phone, debt:0})});
+      load();
+    }
+    async function changeDebt(id, delta){
+      await fetch(API + '?action=updateDebt', {method:'POST', body: JSON.stringify({id, delta})});
+      load();
+    }
+    load();
+  </script>
+</body>
